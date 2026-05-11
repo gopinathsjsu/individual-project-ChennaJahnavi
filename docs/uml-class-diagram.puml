@@ -1,0 +1,159 @@
+@startuml uml-class-diagram
+title Class diagram — generated from Java sources (log-parser)
+skinparam classAttributeIconSize 0
+' Embedded layout (no Graphviz / dot required)
+!pragma layout smetana
+
+package "com.logparser" {
+  class LogParserApp <<entry>> {
+    - LogParserApp()
+    + {static} main(args : String[]) : void
+  }
+
+  class CliArgs <<utility>> {
+    - CliArgs()
+    ~ {static} parseInputFile(args : String[]) : Path
+  }
+
+  class LogParser {
+    - classifier : LogClassifier
+    - parserFactory : ParserFactory
+    - writer : JsonSummaryWriter
+    + LogParser(classifier : LogClassifier, parserFactory : ParserFactory, writer : JsonSummaryWriter)
+    + {static} createDefault() : LogParser
+    + run(inputFile : Path, outputDirectory : Path) : void
+  }
+}
+
+package "com.logparser.classifier" {
+  abstract class LogClassifier {
+    + classify(line : String) : LogType
+  }
+
+  class DefaultLogClassifier {
+    + classify(line : String) : LogType
+  }
+
+  enum LogType {
+    APM
+    APPLICATION
+    REQUEST
+    UNKNOWN
+  }
+}
+
+package "com.logparser.factory" {
+  class ParserFactory {
+    + createParsersForRun() : Map~LogType,ILogParser~
+    + create(type : LogType, runParsers : Map~LogType,ILogParser~) : ILogParser
+  }
+}
+
+package "com.logparser.parsers" {
+  interface ILogParser {
+    + parse(line : String) : boolean
+    + aggregate() : Map~String,Object~
+  }
+
+  class APMLogParser {
+    - entries : List~APMModel~
+    + parse(line : String) : boolean
+    + aggregate() : Map~String,Object~
+  }
+
+  class ApplicationLogParser {
+    - entries : List~AppLogModel~
+    + parse(line : String) : boolean
+    + aggregate() : Map~String,Object~
+  }
+
+  class RequestLogParser {
+    - entries : List~RequestModel~
+    + parse(line : String) : boolean
+    + aggregate() : Map~String,Object~
+  }
+}
+
+package "com.logparser.models" {
+  class APMModel <<record>> {
+    + timestamp() : String
+    + metric() : String
+    + value() : double
+  }
+
+  class AppLogModel <<record>> {
+    + timestamp() : String
+    + level() : String
+    + message() : String
+  }
+
+  class RequestModel <<record>> {
+    + timestamp() : String
+    + method() : String
+    + url() : String
+    + status() : int
+    + timeMs() : int
+  }
+}
+
+package "com.logparser.writer" {
+  class JsonSummaryWriter {
+    - mapper : ObjectMapper
+    + JsonSummaryWriter()
+    + write(directory : Path, fileName : String, payload : Map~String,Object~) : void
+    + writeAll(outputDirectory : Path, apm : Map~String,Object~, application : Map~String,Object~, request : Map~String,Object~) : void
+  }
+}
+
+package "com.logparser.util" {
+  class KeyValueLineParser <<utility>> {
+    - KeyValueLineParser()
+    + {static} parse(line : String) : Map~String,String~
+  }
+}
+
+LogParserApp ..> CliArgs : parse args
+LogParserApp ..> LogParser : createDefault()\n.run()
+
+LogParser --> LogClassifier : classifier
+LogParser --> ParserFactory : parserFactory
+LogParser --> JsonSummaryWriter : writer
+
+DefaultLogClassifier --|> LogClassifier
+DefaultLogClassifier ..> LogType
+DefaultLogClassifier ..> KeyValueLineParser : parse line
+
+LogParser ..> LogType
+LogParser ..> ILogParser : parse via factory
+
+ParserFactory ..> APMLogParser : «create»
+ParserFactory ..> ApplicationLogParser : «create»
+ParserFactory ..> RequestLogParser : «create»
+
+APMLogParser ..|> ILogParser
+ApplicationLogParser ..|> ILogParser
+RequestLogParser ..|> ILogParser
+
+APMLogParser "1" o-- "0..*" APMModel : entries
+ApplicationLogParser "1" o-- "0..*" AppLogModel : entries
+RequestLogParser "1" o-- "0..*" RequestModel : entries
+
+APMLogParser ..> KeyValueLineParser
+ApplicationLogParser ..> KeyValueLineParser
+RequestLogParser ..> KeyValueLineParser
+
+note right of ParserFactory
+  createParsersForRun() builds one parser
+  instance per LogType for a single run;
+  create() returns the instance from that map.
+end note
+
+note bottom of LogParser
+  run() throws IOException
+end note
+
+note bottom of JsonSummaryWriter
+  write() and writeAll() throw IOException
+end note
+
+@enduml
