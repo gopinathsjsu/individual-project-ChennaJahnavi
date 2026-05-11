@@ -11,18 +11,18 @@ echo "==> Fetching from origin …"
 git fetch origin
 
 if git rev-parse --verify origin/main >/dev/null 2>&1; then
-  REF=origin/main
+  echo "==> Resetting branch main to origin/main"
+  git checkout -B main origin/main
+  git reset --hard origin/main
 elif git rev-parse --verify origin/master >/dev/null 2>&1; then
-  REF=origin/master
+  echo "==> Resetting branch main to match origin/master"
+  git checkout -B main origin/master
+  git reset --hard origin/master
 else
   echo "No origin/main or origin/master found. Is the repo empty or fetch failed?"
   exit 1
 fi
 
-echo "==> Resetting current branch to match $REF (local-only changes not on remote will be lost)"
-git checkout -B main "$REF" 2>/dev/null || git checkout main
-git reset --hard "$REF"
-
-echo "==> Done. Working tree now matches $REF"
+echo "==> Done. Working tree matches remote default branch."
 git status
 git log -1 --oneline
